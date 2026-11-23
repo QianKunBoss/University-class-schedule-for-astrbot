@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><title>课表</title></head>
+<body>
+<!-- 脱敏测试样本：结构模仿强智 jsxsd 的课表表格（含 rowspan 合并、同格多课、单双周） -->
+<table id="kbtable" class="Nsb_r_list Nsb_table">
+  <tr>
+    <th>节次</th><th>星期一</th><th>星期二</th><th>星期三</th><th>星期四</th>
+    <th>星期五</th><th>星期六</th><th>星期日</th>
+  </tr>
+  <tr>
+    <td>第一大节</td>
+    <td>
+      <div class="kbcontent1">高等数学<br><font title='老师'>张三</font><br><font title='周次(节次)'>1-16周(1-2节)</font><br><font title='教室'>教101</font></div>
+    </td>
+    <td></td><td></td><td></td><td></td><td></td><td></td>
+  </tr>
+  <tr>
+    <td>第二大节</td>
+    <td>
+      <div class="kbcontent1">大学英语<br><font title='老师'>李四</font><br><font title='周次(节次)'>1-8周(3-4节)</font><br><font title='教室'>外语楼202</font></div>
+      <div class="kbcontent2">体育<br><font title='老师'>王五</font><br><font title='周次(节次)'>9-16周(3-4节)</font><br><font title='教室'>操场</font></div>
+    </td>
+    <td></td><td></td><td></td><td></td><td></td><td></td>
+  </tr>
+  <tr>
+    <td>第三大节</td>
+    <td><div class="kbcontent1">数据结构<br><br>赵六<br>1-16周(单)<br>机房A</div></td>
+    <td></td><td></td><td></td><td></td><td></td><td></td>
+  </tr>
+  <tr>
+    <td>第四大节</td>
+    <td></td>
+    <td rowspan="2"><div class="kbcontent1">大学物理<br><font title='老师'>钱七</font><br><font title='周次(节次)'>1-15周</font><br><font title='教室'>物理楼301</font></div></td>
+    <td></td><td></td><td></td><td></td><td></td>
+  </tr>
+  <tr>
+    <td>第五大节</td>
+    <td></td>
+    <td></td><td></td><td></td><td></td><td></td>
+  </tr>
+</table>
+</body>
+</html>

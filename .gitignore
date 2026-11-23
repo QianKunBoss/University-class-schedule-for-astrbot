@@ -1,0 +1,20 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+dist/
+
+# 探针产物（含真实课表与账号相关页面，绝不能提交）
+probe_out/
+probe_config.json
+snapshots/
+data/
+
+# 本地凭据
+.env
+*.local.json
+debug_qtnu_xskb.html
+debug_data/

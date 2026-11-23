@@ -1,0 +1,12 @@
+# 插件运行依赖（AstrBot 加载插件时会自动安装）
+httpx>=0.27.0
+beautifulsoup4>=4.12.0
+lxml>=5.0.0
+# RSA PKCS#1 v1.5 加密：统一认证登录必需
+cryptography>=41.0.0
+# 部分精简镜像/Windows 缺少时区数据库，zoneinfo 需要它（Docker 下通常已有系统 tzdata）
+tzdata>=2024.1
+
+# 可选：直连登录的验证码识别（仅在配置打开 jw.captcha_ocr 时需要）
+# 体积较大且依赖 libGL，故不放进必装依赖，需要时手动安装：
+#   pip install ddddocr

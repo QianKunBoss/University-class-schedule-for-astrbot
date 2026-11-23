@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>教务课表</title>
+    <link rel="stylesheet" href="./style.css?v=038" />
+  </head>
+  <body>
+    <div class="app">
+      <header class="topbar">
+        <div class="brand">
+          <div class="brand-mark">课</div>
+          <div class="brand-text">
+            <h1>教务课表</h1>
+            <span class="sub" id="brandSub">正在读取状态…</span>
+          </div>
+        </div>
+        <div class="top-actions">
+          <label class="switch" title="上课提醒总开关">
+            <input type="checkbox" id="notifyToggle" />
+            <span class="track"><span class="knob"></span></span>
+            <span class="switch-label">提醒</span>
+          </label>
+          <button class="btn" id="btnRefresh">刷新课表</button>
+          <button class="btn ghost" id="btnLogin">测试登录</button>
+        </div>
+      </header>
+
+      <nav class="tabs" id="tabs">
+        <button class="tab active" data-tab="schedule">课表</button>
+        <button class="tab" data-tab="settings">设置</button>
+        <button class="tab" data-tab="status">状态</button>
+      </nav>
+
+      <main>
+        <!-- ========== 课表 ========== -->
+        <section class="panel" id="tab-schedule">
+          <div class="weekbar">
+            <button class="icon-btn" id="prevWeek" aria-label="上一周">‹</button>
+            <div class="weekinfo">
+              <strong id="weekLabel">第 1 周</strong>
+              <span id="weekBounds"></span>
+            </div>
+            <button class="icon-btn" id="nextWeek" aria-label="下一周">›</button>
+            <button class="btn ghost small" id="thisWeek">回到本周</button>
+            <span class="spacer"></span>
+            <span class="hint" id="courseCount"></span>
+          </div>
+          <div class="tablewrap">
+            <table id="grid" class="grid"></table>
+            <div class="empty" id="gridEmpty" hidden>
+              <p>还没有课表数据</p>
+              <p class="hint">到「设置」填好教务地址与账号，然后点右上角「刷新课表」</p>
+            </div>
+          </div>
+          <div id="todayBox" class="today-box" hidden></div>
+        </section>
+
+        <!-- ========== 设置 ========== -->
+        <section class="panel" id="tab-settings" hidden>
+          <form id="settingsForm" autocomplete="off">
+            <div class="card">
+              <h2>登录信息</h2>
+              <p class="hint">密码只保存在 AstrBot 本地配置中，不会回显，也不会出现在日志里</p>
+              <div class="grid2">
+                <label class="field">
+                  <span>教务系统地址</span>
+                  <input name="base_url" placeholder="http://jw.example.edu.cn" />
+                  <em>不要带 /jsxsd 后缀；必须是 http:// 或 https:// 开头</em>
+                </label>
+                <label class="field">
+                  <span>认证方式</span>
+                  <select name="auth_mode">
+                    <option value="auto">自动（先 SSO 后直连）</option>
+                    <option value="sso">统一认证 SSO</option>
+                    <option value="direct">教务处直连登录</option>
+                  </select>
+                </label>
+                <label class="field">
+                  <span>统一认证地址</span>
+                  <input name="cas_url" placeholder="https://cas.example.edu.cn" />
+                </label>
+                <label class="field">
+                  <span>SSO 回调地址</span>
+                  <input name="service_url" placeholder="留空自动推导" />
+                  <em>必须与浏览器跳转地址逐字符一致，注意 http / https</em>
+                </label>
+                <label class="field">
+                  <span>学号 / 账号</span>
+                  <input name="username" placeholder="2026xxxx" />
+                </label>
+                <label class="field">
+                  <span>密码</span>
+                  <input name="password" type="password" placeholder="留空表示不修改" />
+                  <em id="pwdHint">尚未保存密码</em>
+                </label>
+              </div>
+            </div>
+
+            <div class="card">
+              <h2>提醒</h2>
+              <div class="grid2">
+                <label class="field">
+                  <span>提前提醒（分钟）</span>
+                  <input name="ahead_minutes" type="number" min="0" max="240" step="5" />
+                </label>
+                <label class="field">
+                  <span>第二次提醒（分钟，0=关闭）</span>
+                  <input name="second_ahead_minutes" type="number" min="0" max="120" />
+                </label>
+                <label class="field">
+                  <span>每日早报时间</span>
+                  <input name="daily_brief_time" placeholder="07:00，留空关闭" />
+                </label>
+                <label class="field check">
+                  <input type="checkbox" name="notify_enabled" />
+                  <span>启用提醒</span>
+                </label>
+                <label class="field check">
+                  <input type="checkbox" name="brief_skip_empty" />
+                  <span>当天没课时不发早报</span>
+                </label>
+              </div>
+            </div>
+
+            <div class="card">
+              <h2>课表与识别</h2>
+              <div class="grid2">
+                <label class="field">
+                  <span>学期</span>
+                  <select name="term_select" id="termSelect">
+                    <option value="auto">auto（跟随教务默认）</option>
+                  </select>
+                  <input name="term" placeholder="手动输入，如 2026-2027-1" style="display:none" />
+                  <em>
+                    <button type="button" class="btn small" id="btnFetchTerms">从教务获取学期列表</button>
+                    <span id="termHint">填好账号并保存后，点左侧按钮从教务系统拉取</span>
+                  </em>
+                </label>
+                <label class="field">
+                  <span>第 1 周周一</span>
+                  <input name="week1_monday" type="date" />
+                  <em>留空则由教务页面的「当前周」自动反推</em>
+                </label>
+                <label class="field">
+                  <span>自动刷新间隔（小时）</span>
+                  <input name="refresh_hours" type="number" min="1" max="48" />
+                </label>
+                <label class="field check">
+                  <input type="checkbox" name="llm_enhance" />
+                  <span>用 AI 补全课程名 / 教师 / 教室</span>
+                </label>
+              </div>
+              <p class="hint">
+                开启后，解析不到教师或教室的课程会交给 AstrBot 已配置的模型再识别一次；
+                结果会同时用于面板与推送文案。识别结果按原文缓存，同一份课表只调用一次。
+              </p>
+            </div>
+
+            <div class="formfoot">
+              <button type="submit" class="btn">保存</button>
+              <span class="hint" id="saveHint"></span>
+            </div>
+          </form>
+        </section>
+
+        <!-- ========== 状态 ========== -->
+        <section class="panel" id="tab-status" hidden>
+          <div class="card">
+            <h2>运行状态</h2>
+            <dl class="kv" id="statusList"></dl>
+          </div>
+          <div class="card">
+            <h2>识别质量</h2>
+            <div id="recogBox" class="recog"></div>
+          </div>
+          <div class="card">
+            <h2>排障工具</h2>
+            <p class="hint">
+              解析出的课表和教务页面不一致时，点这里导出课表原始页面（HTML）发给作者，
+              可以精准适配你学校的格式。
+            </p>
+            <button class="btn ghost small" id="btnExportSnapshot">导出课表原始页面（HTML）</button>
+          </div>
+        </section>
+      </main>
+
+      <div class="toast" id="toast" hidden></div>
+    </div>
+    <script type="module" src="./app.js?v=038"></script>
+  </body>
+</html>

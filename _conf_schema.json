@@ -1,0 +1,220 @@
+{
+  "jw": {
+    "type": "object",
+    "description": "教务系统连接",
+    "items": {
+      "base_url": {
+        "type": "string",
+        "description": "教务系统地址",
+        "default": "",
+        "hint": "形如 http://jw.example.edu.cn ，不要带 /jsxsd 后缀",
+        "obvious_hint": true
+      },
+      "auth_mode": {
+        "type": "string",
+        "description": "认证方式",
+        "default": "auto",
+        "options": ["auto", "sso", "direct"],
+        "labels": ["自动（先 SSO 后直连）", "统一认证 SSO", "教务处直连登录"],
+        "subtitles": [
+          "推荐：配了统一认证地址就走 SSO，失败自动回落直连",
+          "仅走 CAS 统一身份认证（多数高校现在只能用这个）",
+          "仅走教务处登录页（需要验证码）"
+        ]
+      },
+      "cas_url": {
+        "type": "string",
+        "description": "统一认证地址",
+        "default": "",
+        "hint": "形如 https://cas.example.edu.cn ，留空则不走 SSO"
+      },
+      "service_url": {
+        "type": "string",
+        "description": "SSO 回调地址",
+        "default": "",
+        "hint": "留空会自动用「教务地址 + /jsxsd/sso.jsp」；部分学校不同，可从浏览器地址栏的 service= 参数里抄"
+      },
+      "username": {
+        "type": "string",
+        "description": "学号 / 账号",
+        "default": "",
+        "obvious_hint": true
+      },
+      "password": {
+        "type": "string",
+        "description": "密码",
+        "default": "",
+        "secret": true
+      },
+      "ssl_verify": {
+        "type": "bool",
+        "description": "校验 HTTPS 证书",
+        "default": true,
+        "hint": "个别学校统一认证证书过期，登录报 SSL 错误时可关闭"
+      },
+      "timeout": {
+        "type": "int",
+        "description": "请求超时（秒）",
+        "default": 20,
+        "slider": { "min": 5, "max": 60, "step": 1 }
+      },
+      "login_max_retry": {
+        "type": "int",
+        "description": "直连登录重试次数",
+        "default": 3,
+        "hint": "仅用于验证码识别失败等可重试场景；密码错误不会重试，避免触发锁号",
+        "slider": { "min": 0, "max": 10, "step": 1 }
+      },
+      "captcha_ocr": {
+        "type": "bool",
+        "description": "启用验证码自动识别",
+        "default": false,
+        "hint": "需要额外安装 ddddocr；Docker 部署还需 apt-get install -y libgl1 libglib2.0-0。SSO 登录通常不需要"
+      },
+      "user_agent": {
+        "type": "string",
+        "description": "自定义 User-Agent",
+        "default": "",
+        "hint": "留空使用内置的桌面浏览器 UA"
+      }
+    }
+  },
+  "schedule": {
+    "type": "object",
+    "description": "学期与作息",
+    "items": {
+      "term": {
+        "type": "string",
+        "description": "学期标识",
+        "default": "auto",
+        "hint": "auto=跟随教务系统默认学期；也可填 2026-2027-1 这种格式"
+      },
+      "week1_monday": {
+        "type": "string",
+        "description": "第 1 周周一日期",
+        "default": "",
+        "hint": "留空则由教务系统页面里的「当前周」自动反推；格式 YYYY-MM-DD"
+      },
+      "max_week": {
+        "type": "int",
+        "description": "最大教学周",
+        "default": 20,
+        "slider": { "min": 8, "max": 40, "step": 1 }
+      },
+      "big_period_size": {
+        "type": "int",
+        "description": "一个大节包含几小节",
+        "default": 2,
+        "hint": "课表里写「第一大节」时乘以这个值换算成节次，多数学校是 2",
+        "slider": { "min": 1, "max": 4, "step": 1 }
+      },
+      "periods": {
+        "type": "text",
+        "description": "作息时间表",
+        "default": "",
+        "hint": "留空使用内置 12 节默认值。可在 /kb period show 查看，用 /kb period set 单条修改",
+        "editor_mode": true,
+        "editor_language": "json",
+        "editor_theme": "vs-dark"
+      },
+      "refresh_hours": {
+        "type": "int",
+        "description": "课表自动刷新间隔（小时）",
+        "default": 6,
+        "hint": "教务系统承压能力有限，不建议低于 1 小时",
+        "slider": { "min": 1, "max": 48, "step": 1 }
+      },
+      "snapshot_keep": {
+        "type": "int",
+        "description": "保留页面快照份数",
+        "default": 10,
+        "hint": "用于教务系统改版时排障，0 表示不保留",
+        "slider": { "min": 0, "max": 50, "step": 1 }
+      },
+      "llm_enhance": {
+        "type": "bool",
+        "description": "用 AI 补全课程名/教师/教室",
+        "default": false,
+        "hint": "开启后，规则解析不出教师或教室的课程会交给 AstrBot 已配置的模型再识别一次；结果同时用于面板和推送"
+      }
+    }
+  },
+  "notify": {
+    "type": "object",
+    "description": "提醒设置",
+    "items": {
+      "enabled": {
+        "type": "bool",
+        "description": "启用提醒",
+        "default": true
+      },
+      "ahead_minutes": {
+        "type": "int",
+        "description": "提前多少分钟提醒",
+        "default": 20,
+        "slider": { "min": 0, "max": 120, "step": 5 }
+      },
+      "second_ahead_minutes": {
+        "type": "int",
+        "description": "第二次提醒（分钟，0=关闭）",
+        "default": 0,
+        "hint": "例如填 5，则上课前 20 分钟和 5 分钟各提醒一次",
+        "slider": { "min": 0, "max": 60, "step": 1 }
+      },
+      "daily_brief_time": {
+        "type": "string",
+        "description": "每日课表早报时间",
+        "default": "07:00",
+        "hint": "HH:MM，留空或填 off 关闭"
+      },
+      "brief_skip_empty": {
+        "type": "bool",
+        "description": "当天没课时不发早报",
+        "default": true
+      },
+      "notify_on_change": {
+        "type": "bool",
+        "description": "课表变动时推送",
+        "default": true,
+        "hint": "调课、换教室、停课被检测到就推一条"
+      },
+      "max_sends_per_minute": {
+        "type": "int",
+        "description": "每分钟最多发送条数",
+        "default": 3,
+        "hint": "用于避免触发聊天平台风控",
+        "slider": { "min": 1, "max": 20, "step": 1 }
+      }
+    }
+  },
+  "push": {
+    "type": "object",
+    "description": "推送目标",
+    "items": {
+      "private_enabled": {
+        "type": "bool",
+        "description": "推送到私聊",
+        "default": true
+      },
+      "group_enabled": {
+        "type": "bool",
+        "description": "推送到群聊",
+        "default": false
+      },
+      "private_umos": {
+        "type": "list",
+        "description": "私聊会话",
+        "default": [],
+        "_special": "umo",
+        "hint": "可以直接在这里选择会话；也可在目标私聊里发 /kb push here"
+      },
+      "group_umos": {
+        "type": "list",
+        "description": "群聊会话",
+        "default": [],
+        "_special": "umo",
+        "hint": "可以直接在这里选择群；也可在目标群里发 /kb push here"
+      }
+    }
+  }
+}

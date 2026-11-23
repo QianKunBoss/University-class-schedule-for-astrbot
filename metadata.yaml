@@ -1,0 +1,23 @@
+name: astrbot_plugin_jw_timetable
+author: QianKunBoss
+display_name: 教务课表
+short_desc: 连接教务系统实时抓取课表，上课前自动提醒（支持 SSO 统一认证）
+desc: >-
+  从强智（jsxsd）教务系统抓取真实课表，上课前按分钟级精度推送提醒。
+  支持两种登录方式：CAS 统一身份认证（金智 tpass 体系，RSA 加密，多数高校已强制启用）
+  与教务处直连登录（图形验证码，可选 ddddocr 自动识别）。
+  功能：今日/明日/指定周与指定星期查询、每日课表早报、调课/换教室变更推送、
+  /课表 等中文指令、课表图片渲染（文转图失败自动回退文本）。
+  所有数据只保存在本地 data 目录，密码仅存于 AstrBot 配置，不上传任何第三方。
+version: "0.3.8"
+repo: https://github.com/QianKunBoss/astrbot_plugin_jw_timetable
+astrbot_version: ">=4.20.0"
+tags:
+  - 校园
+  - 课表
+  - 提醒
+  - 教务
+views:
+  - name: panel
+    target: plugin_page
+    title: 教务课表面板
