@@ -17,4 +17,5 @@ data/
 .env
 *.local.json
 debug_qtnu_xskb.html
+debug_qtnu_home.html
 debug_data/
