@@ -784,3 +784,10 @@ html[data-theme="dark"] .chip.warn {
   color: #fff;
   border-color: var(--danger, #c0392b);
 }
+
+
+.course .tag.mark {
+  background: #e67e22;
+  color: #fff;
+  margin-left: 4px;
+}

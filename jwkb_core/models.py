@@ -68,6 +68,7 @@ class Course:
     weeks_guessed: bool = False  # 周次是否靠猜（解析不出时的兜底标记）
     manual: bool = False  # True = 用户在面板里手动添加/编辑的自定义课程
     entry_id: str = ""  # 自定义课程的唯一 id（fetched 课程为空）
+    mark: str = ""  # 教务调课标记字母（琼台红标 O/P 代表不同调课方式），仅展示用
 
     @property
     def uid(self) -> str:
@@ -109,6 +110,7 @@ class Course:
             "weeks_guessed": self.weeks_guessed,
             "manual": self.manual,
             "entry_id": self.entry_id,
+            "mark": self.mark,
         }
 
     @classmethod
@@ -125,6 +127,7 @@ class Course:
             weeks_guessed=bool(d.get("weeks_guessed", False)),
             manual=bool(d.get("manual", False)),
             entry_id=str(d.get("entry_id", "") or ""),
+            mark=str(d.get("mark", "") or ""),
         )
 
 

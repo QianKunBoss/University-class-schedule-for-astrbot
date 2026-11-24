@@ -280,3 +280,24 @@ def test_real_page_snapshot_if_present():
     assert not any(c.name.startswith("-") for c in courses)
     # 绝大多数课程应识别出教师
     assert len([c for c in courses if c.teacher]) >= len(courses) * 0.9
+
+
+def test_red_mark_bare_letter_extracted_not_name():
+    """红标是解码后的裸 O/P（&nbsp; 被解析器解码后清洗成空格）时，
+    课程名/教师不能被污染；标记字母要保留到 mark 字段。"""
+    cell_html = (
+        "<table>"
+        "<tr><th>节次</th><th>星期一</th><th>星期二</th><th>星期三</th>"
+        "<th>星期四</th><th>星期五</th><th>星期六</th><th>星期日</th></tr>"
+        "<tr><td>05-06节</td>"
+        '<td><div class="kbcontent">程序设计基础'
+        "<span><font color='red'>O</font></span>于营<br/>"
+        "<font title='周次(节次)'>3(周)[05-06节]</font><br/>"
+        "<font title='教室'>报国楼（原理A）305（桂）</font></div></td>"
+        "<td></td><td></td><td></td><td></td><td></td><td></td></tr></table>"
+    )
+    courses = parse_timetable(cell_html, max_week=20, big_period_size=2)
+    assert len(courses) == 1
+    assert courses[0].name == "程序设计基础"
+    assert courses[0].teacher == "于营"
+    assert courses[0].mark == "O"

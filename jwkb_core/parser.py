@@ -289,13 +289,42 @@ def _split_blocks(cell: Tag) -> list[Tag]:
     return divs
 
 
-def _split_entry_segments(block: Tag) -> list[Tag]:
+def _extract_red_marks(tag: Tag) -> str:
+    """把 tag 里红色标记 font 元素的内容提取为调课标记字母并从树中剥掉。
+
+    琼台用 <span><font color='red'>O/P</font></span> 标注两种调课方式；
+    标记是注释不是数据，不能混进课程名/教师候选。
+    注意标记文本有三种形态：字面 "&nbspO"、解码后的 "\\xa0O"、裸 "O" ——
+    这里只剥 &nbsp 前缀，**保留字母**（不能用 _clean，它会把字母一起吞掉）。
+    """
+    marks: list[str] = []
+    prefix = re.compile(r"(?i)^\s*&?\s*n\s*b\s*s\s*p\s*")
+    for font in tag.find_all("font", color=lambda v: v and "red" in str(v).lower()):
+        raw = font.get_text().replace("\xa0", " ")
+        letter = prefix.sub("", raw).strip()[:2]
+        if letter:
+            marks.append(letter)
+        font.decompose()
+    for font in tag.find_all("font", style=re.compile("red", re.I)):
+        raw = font.get_text().replace("\xa0", " ")
+        letter = prefix.sub("", raw).strip()[:2]
+        if letter:
+            marks.append(letter)
+        font.decompose()
+    return "".join(marks)[:4]
+
+
+def _split_entry_segments(block: Tag) -> list[tuple[Tag, str]]:
     """把一个 block 按 ``------`` 分隔线拆成多个子段，**保留 ``<font>`` 结构**。
 
     琼台的完整块里，同一门课的不同周次段（2(周) / 3(周) / 7-16(周)）用分隔线隔开，
     每段都自带 ``<font title='老师|周次(节次)|教室'>``。若先把整块转成纯文本再拆，
     font 的结构化字段就丢了 —— 旧逻辑因此只保留了第一段的周次，课程大量缺失
     （真实踩过的坑）。
+
+    Returns:
+        ``(子段 Tag, 调课标记字母)`` 列表 —— 两条返回路径都必须是二元组，
+        否则调用方解包会炸（真实踩过的坑）。
     """
     groups: list[list] = []
     cur: list = []
@@ -310,14 +339,19 @@ def _split_entry_segments(block: Tag) -> list[Tag]:
     if cur:
         groups.append(cur)
     if not groups:
-        return [block]
+        # 只有空白子节点的块：不拆，但仍要处理红标（统一返回二元组）
+        mark = _extract_red_marks(block)
+        return [(block, mark)]
 
-    out: list[Tag] = []
+    out: list[tuple[Tag, str]] = []  # (子段 Tag, 该段的调课标记字母)
     for g in groups:
         inner = "".join(str(x) for x in g)
         soup = BeautifulSoup(f"<div>{inner}</div>", "lxml")
-        if soup.div is not None:
-            out.append(soup.div)
+        seg = soup.div
+        if seg is None:
+            continue
+        mark = _extract_red_marks(seg)
+        out.append((seg, mark))
     return out
 
 
@@ -412,7 +446,7 @@ def _parse_cell(
     for block in _split_blocks(cell):
         # 按分隔线拆成子段（保留 <font> 结构），每段独立取字段
         segments = _split_entry_segments(block)
-        for si, seg in enumerate(segments):
+        for si, (seg, mark) in enumerate(segments):
             text = _cell_text(seg)
             if not text or not _clean(text):
                 continue
@@ -442,6 +476,7 @@ def _parse_cell(
                     location=_clean(fields.get("location", "")),
                     raw=_clean(text)[:300],
                     weeks_guessed=guessed,
+                    mark=mark,
                 )
             )
     return out

@@ -32,6 +32,8 @@ def course_card(course: Course, schedule) -> dict:
         "manual": course.manual,
         "entry_id": course.entry_id,
         "fingerprint": course.fingerprint,
+        # 教务调课标记（琼台红标 O/P 代表不同调课方式），面板显示为徽章
+        "mark": getattr(course, "mark", ""),
     }
 
 

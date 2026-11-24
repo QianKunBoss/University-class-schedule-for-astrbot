@@ -289,6 +289,9 @@ function cardHtml(c) {
   if (!parts.length) parts.push("<span>未识别</span>");
   let cls = c.incomplete ? "course incomplete" : "course";
   if (c.manual) cls += " manual";
+  const markBadge = c.mark
+    ? `<span class="tag mark" title="教务调课标记（O/P 代表不同调课方式）">调课·${esc(c.mark)}</span>`
+    : "";
   // 面板编辑按钮：自定义课 → 编辑/删除；教务课 → 隐藏
   let actions = "";
   if (c.manual) {
@@ -296,7 +299,7 @@ function cardHtml(c) {
   } else {
     actions = `<div class="course-actions"><button class="mini-btn" data-act="hide" data-fp="${esc(c.fingerprint)}" data-name="${esc(c.name)}" title="从课表中隐藏这一条">🚫</button></div>`;
   }
-  return `<div class="${cls}" title="${esc(c.time)}"><div class="name">${esc(c.name)}${c.manual ? ' <span class="tag">自定义</span>' : ""}</div><div class="meta">${parts.join("")}</div>${actions}</div>`;
+  return `<div class="${cls}" title="${esc(c.time)}"><div class="name">${esc(c.name)}${c.manual ? ' <span class="tag">自定义</span>' : ""}${markBadge}</div><div class="meta">${parts.join("")}</div>${actions}</div>`;
 }
 
 function renderGrid() {
