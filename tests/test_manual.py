@@ -100,11 +100,11 @@ def test_persistence_across_instances(tmp_path):
     fp = _timetable().fetched_courses[0].fingerprint  # 高等数学的真实指纹
     store = _store(tmp_path)
     store.add(Course(name="班会", weekday=3, start_period=7, end_period=8))
-    store.hide(fp)
+    store.hide(fp, "高等数学")
 
     store2 = ManualStore(tmp_path)
     assert len(store2.entries) == 1
-    assert store2.hidden == [fp]
+    assert store2.hidden == [{"fp": fp, "name": "高等数学"}]
     tt = _timetable()
     store2.apply(tt)
     assert any(c.name == "班会" for c in tt.courses)

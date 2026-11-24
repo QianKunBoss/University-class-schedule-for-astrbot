@@ -4,13 +4,13 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>教务课表</title>
-    <link rel="stylesheet" href="./style.css?v=039b" />
+    <link rel="stylesheet" href="./style.css?v=039c" />
   </head>
   <body>
     <div class="app">
       <header class="topbar">
         <div class="brand">
-          <div class="brand-mark">课</div>
+          <img class="brand-mark" src="logo.png" alt="KB" />
           <div class="brand-text">
             <h1>教务课表</h1>
             <span class="sub" id="brandSub">正在读取状态…</span>
@@ -145,6 +145,11 @@
                   <em>留空则由教务页面的「当前周」自动反推</em>
                 </label>
                 <label class="field">
+                  <span>作息时间表</span>
+                  <textarea name="periods_text" rows="6" placeholder="每行一个时间段，格式 开始-结束，按顺序即节次序号：&#10;08:00-09:40&#10;10:00-11:40&#10;14:30-16:10"></textarea>
+                  <em>第 1 行是第 1 节，依次类推；用于把「1-2节」换算成具体上课时间</em>
+                </label>
+                <label class="field">
                   <span>自动刷新间隔（小时）</span>
                   <input name="refresh_hours" type="number" min="1" max="48" />
                 </label>
@@ -184,6 +189,7 @@
             </p>
             <button class="btn ghost small" id="btnExportSnapshot">导出课表原始页面（HTML）</button>
             <p class="hint" id="editInfo"></p>
+            <div id="hiddenList"></div>
             <button class="btn ghost small" id="btnRestoreHidden" hidden>恢复全部隐藏课程</button>
           </div>
         </section>
@@ -247,6 +253,6 @@
         </div>
       </div>
     </div>
-    <script type="module" src="./app.js?v=039b"></script>
+    <script type="module" src="./app.js?v=039c"></script>
   </body>
 </html>

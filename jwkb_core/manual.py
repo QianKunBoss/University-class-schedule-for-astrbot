@@ -30,7 +30,7 @@ class ManualStore:
         self.hidden_path = self.dir / "hidden_courses.json"
         self.log = log
         self.entries: list[dict] = []  # [{"id": str, "course": Course}]
-        self.hidden: list[str] = []  # fingerprint 列表
+        self.hidden: list[dict] = []  # [{"fp": 指纹, "name": 课程名}]，供状态页逐条恢复
         self._load()
 
     # ---------- 持久化 ----------
@@ -49,7 +49,17 @@ class ManualStore:
                 self.entries.append(
                     {"id": str(item.get("id") or course.entry_id or uuid.uuid4().hex[:8]), "course": course}
                 )
-        self.hidden = [str(x) for x in (read_json(self.hidden_path, None) or []) if x]
+        raw_hidden = read_json(self.hidden_path, None) or []
+        self.hidden = []
+        for x in raw_hidden:
+            if not x:
+                continue
+            if isinstance(x, dict):
+                self.hidden.append({"fp": str(x.get("fp") or ""), "name": str(x.get("name") or "")})
+            else:
+                # 0.3.9 初版是纯指纹列表，迁移成带名字的结构
+                self.hidden.append({"fp": str(x), "name": ""})
+        self.hidden = [e for e in self.hidden if e["fp"]]
 
     def save(self) -> None:
         try:
@@ -86,14 +96,15 @@ class ManualStore:
             return True
         return False
 
-    def hide(self, fingerprint: str) -> None:
-        if fingerprint and fingerprint not in self.hidden:
-            self.hidden.append(fingerprint)
-            self.save()
+    def hide(self, fingerprint: str, name: str = "") -> None:
+        if not fingerprint or any(e["fp"] == fingerprint for e in self.hidden):
+            return
+        self.hidden.append({"fp": fingerprint, "name": name})
+        self.save()
 
     def unhide(self, fingerprint: str) -> None:
-        if fingerprint in self.hidden:
-            self.hidden = [x for x in self.hidden if x != fingerprint]
+        if any(e["fp"] == fingerprint for e in self.hidden):
+            self.hidden = [e for e in self.hidden if e["fp"] != fingerprint]
             self.save()
 
     # ---------- 合并 ----------
@@ -104,7 +115,8 @@ class ManualStore:
         fetched = timetable.fetched_courses or [c for c in timetable.courses if not c.manual]
         timetable.fetched_courses = list(fetched)
 
-        visible = [c for c in fetched if c.fingerprint not in self.hidden]
+        hidden_fps = {e["fp"] for e in self.hidden}
+        visible = [c for c in fetched if c.fingerprint not in hidden_fps]
         manual = [replace(e["course"], manual=True, entry_id=e["id"]) for e in self.entries]
         merged = sorted(visible + manual, key=lambda c: (c.weekday, c.start_period, c.name))
         timetable.courses = merged

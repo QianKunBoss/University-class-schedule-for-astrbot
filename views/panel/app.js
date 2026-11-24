@@ -80,6 +80,21 @@ function renderStatus() {
   if (!s) return;
   const restoreBtn = $("#btnRestoreHidden");
   if (restoreBtn) restoreBtn.hidden = !(s.hidden_count > 0);
+  const hl = $("#hiddenList");
+  if (hl) {
+    const list = s.hidden_list || [];
+    hl.innerHTML = list
+      .map(
+        (e, i) =>
+          `<div class="hidden-row"><span class="n">🚫 ${esc(e.name || `条目 ${i + 1}`)}</span><button class="mini-btn" data-fp="${esc(e.fp)}">恢复</button></div>`,
+      )
+      .join("");
+    if (list.length) {
+      hl.querySelectorAll(".mini-btn").forEach((btn) => {
+        btn.addEventListener("click", () => hideCourse(btn.dataset.fp, true));
+      });
+    }
+  }
   const editInfo = $("#editInfo");
   if (editInfo)
     editInfo.textContent =
@@ -221,9 +236,9 @@ async function deleteCourse(entryId) {
   }
 }
 
-async function hideCourse(fp, restore) {
+async function hideCourse(fp, restore, name = "") {
   try {
-    await post("hide", { fingerprint: fp, hidden: !restore });
+    await post("hide", { fingerprint: fp, hidden: !restore, name });
     toast(restore ? "已恢复" : "已隐藏");
     await loadTimetable(state.week);
     await loadStatus();
@@ -249,7 +264,7 @@ function cardHtml(c) {
   if (c.manual) {
     actions = `<div class="course-actions"><button class="mini-btn" data-act="edit" data-entry="${esc(c.entry_id)}" title="编辑">✎</button><button class="mini-btn" data-act="del" data-entry="${esc(c.entry_id)}" title="删除">🗑</button></div>`;
   } else {
-    actions = `<div class="course-actions"><button class="mini-btn" data-act="hide" data-fp="${esc(c.fingerprint)}" title="从课表中隐藏这一条">🚫</button></div>`;
+    actions = `<div class="course-actions"><button class="mini-btn" data-act="hide" data-fp="${esc(c.fingerprint)}" data-name="${esc(c.name)}" title="从课表中隐藏这一条">🚫</button></div>`;
   }
   return `<div class="${cls}" title="${esc(c.time)}"><div class="name">${esc(c.name)}${c.manual ? ' <span class="tag">自定义</span>' : ""}</div><div class="meta">${parts.join("")}</div>${actions}</div>`;
 }
@@ -374,6 +389,10 @@ async function loadConfig() {
 
   renderTermOptions(state.terms, sc.term || "auto");
   f.week1_monday.value = sc.week1_monday || "";
+  // 作息时间表：[{index,start,end}] → 每行「开始-结束」
+  const periods = (sc.periods || []).slice().sort((a, b) => a.index - b.index);
+  const pt = $("#settingsForm").periods_text;
+  if (pt) pt.value = periods.map((x) => `${x.start}-${x.end}`).join("\n");
   f.refresh_hours.value = sc.refresh_hours ?? 6;
   f.llm_enhance.checked = !!sc.llm_enhance;
 }
@@ -453,6 +472,7 @@ async function saveConfig(event) {
           ? f.term.value.trim() || "auto"
           : f.term_select.value,
       week1_monday: f.week1_monday.value.trim(),
+      periods_text: (f.periods_text && f.periods_text.value) || "",
       refresh_hours: Number(f.refresh_hours.value || 6),
       llm_enhance: f.llm_enhance.checked,
     },
@@ -618,7 +638,7 @@ function bindEvents() {
       if (!btn) return;
       ev.preventDefault();
       const act = btn.dataset.act;
-      if (act === "hide") return hideCourse(btn.dataset.fp, false);
+      if (act === "hide") return hideCourse(btn.dataset.fp, false, btn.dataset.name || "");
       if (act === "del") return deleteCourse(btn.dataset.entry);
       if (act === "edit") {
         try {

@@ -9,6 +9,7 @@
 
 from __future__ import annotations
 
+import re
 import time
 from pathlib import Path
 from typing import Any
@@ -192,6 +193,7 @@ class WebPanel:
             version=PLUGIN_VERSION,
             manual_count=len(getattr(store, "entries", []) or []),
             hidden_count=len(getattr(store, "hidden", []) or []),
+            hidden_list=getattr(store, "hidden", []) or [],
             config_path=(getattr(self.plugin, "_config_path", lambda: "")() or ""),
             auth_mode=(self.plugin.jw.auth_mode_used if self.plugin.jw else "") or cfg.jw.auth_mode,
             account=cfg.jw.display_account,
@@ -343,18 +345,19 @@ class WebPanel:
         if not fingerprint:
             return error_response("缺少 fingerprint", status_code=400)
         hidden = bool((payload or {}).get("hidden", True))
+        name = str((payload or {}).get("name") or "")
         try:
             store = self._store()
         except JwError as exc:
             return _fail(exc.user_msg)
         # 特殊值 __all__：恢复全部隐藏课程（面板「状态」页的恢复按钮）
         if not hidden and fingerprint == "__all__":
-            for fp in list(store.hidden):
-                store.unhide(fp)
+            for e in list(store.hidden):
+                store.unhide(e["fp"])
             self._apply_manual()
             return _ok(message="已恢复全部隐藏课程")
         if hidden:
-            store.hide(fingerprint)
+            store.hide(fingerprint, name)
         else:
             store.unhide(fingerprint)
         self._apply_manual()
@@ -437,6 +440,8 @@ class WebPanel:
                 "week1_monday": cfg.schedule.week1_monday,
                 "refresh_hours": cfg.schedule.refresh_hours,
                 "llm_enhance": bool(getattr(cfg.schedule, "llm_enhance", False)),
+                "periods": [p.to_dict() for p in cfg.schedule.periods],
+                "periods_ok": bool(getattr(cfg.schedule, "periods_ok", True)),
             },
         )
 
@@ -489,6 +494,29 @@ class WebPanel:
         put("schedule", "week1_monday", schedule.get("week1_monday"), str)
         put("schedule", "refresh_hours", schedule.get("refresh_hours"), int)
         put("schedule", "llm_enhance", schedule.get("llm_enhance"), bool)
+
+        # 作息时间表：前端传 textarea 文本（每行「开始-结束」），解析通过才落盘
+        periods_text = str(schedule.get("periods_text") or "").strip()
+        if periods_text:
+            from .config import build_periods
+
+            lines = [ln.strip().lstrip("。·、，,") for ln in periods_text.splitlines() if ln.strip()]
+            pairs = []
+            for ln in lines:
+                m = re.match(r"(\d{1,2}:\d{2})\s*[-~—–至到]\s*(\d{1,2}:\d{2})$", ln)
+                if not m:
+                    return error_response(
+                        f"作息时间格式不对：{ln!r}。每行应为 开始-结束（如 08:00-09:40）",
+                        status_code=400,
+                    )
+                pairs.append(f"{m.group(1)}-{m.group(2)}")
+            periods, ok = build_periods(pairs)
+            if not ok or not periods:
+                return error_response(
+                    "作息时间解析失败，请检查时间格式（HH:MM-HH:MM）",
+                    status_code=400,
+                )
+            put("schedule", "periods", pairs)
 
         if not changed:
             return _ok(changed=[], message="没有改动")
