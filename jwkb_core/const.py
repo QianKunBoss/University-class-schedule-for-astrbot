@@ -8,7 +8,7 @@ from __future__ import annotations
 
 PLUGIN_NAME = "astrbot_plugin_jw_timetable"
 PLUGIN_DISPLAY_NAME = "教务课表"
-PLUGIN_VERSION = "0.3.9"
+PLUGIN_VERSION = "0.4.0"
 PLUGIN_AUTHOR = "QianKunBoss"
 PLUGIN_DESC = "连接强智/SSO 教务系统实时抓取课表，上课前自动提醒"
 
