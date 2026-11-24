@@ -778,3 +778,9 @@ html[data-theme="dark"] .chip.warn {
   width: 100%;
   box-sizing: border-box;
 }
+
+.mini-btn.armed {
+  background: var(--danger, #c0392b);
+  color: #fff;
+  border-color: var(--danger, #c0392b);
+}

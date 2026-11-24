@@ -225,8 +225,38 @@ async function saveCourse(ev) {
   }
 }
 
+// iframe 沙箱会禁用原生 confirm/alert（调用静默返回 false），
+// 破坏性操作改用「二次点击确认」：第一次点变成"确认？"，2.5 秒内再点才执行
+function confirmTwiceReset(btn) {
+  delete btn.dataset.armed;
+  btn.classList.remove("armed");
+  if (btn.dataset.oldText) {
+    btn.textContent = btn.dataset.oldText;
+    delete btn.dataset.oldText;
+  }
+}
+
+function confirmTwice(btn, fn) {
+  if (btn.dataset.armed === "1") {
+    delete btn.dataset.armed;
+    fn();
+    return;
+  }
+  btn.dataset.armed = "1";
+  const old = btn.textContent;
+  btn.dataset.oldText = old;
+  btn.textContent = "确认？";
+  btn.classList.add("armed");
+  setTimeout(() => {
+    if (btn.dataset.armed === "1") {
+      delete btn.dataset.armed;
+      btn.textContent = old;
+      btn.classList.remove("armed");
+    }
+  }, 2500);
+}
+
 async function deleteCourse(entryId) {
-  if (!confirm("确定删除这门自定义课程？")) return;
   try {
     await post("manual", { action: "delete", entry_id: entryId });
     toast("课程已删除");
@@ -247,9 +277,9 @@ async function hideCourse(fp, restore, name = "") {
   }
 }
 
-async function restoreAllHidden() {
-  if (!confirm("恢复全部被隐藏的教务课程？")) return;
+async function restoreAllHidden(btn) {
   await hideCourse("__all__", true);
+  if (btn) confirmTwiceReset(btn);
 }
 
 function cardHtml(c) {
@@ -629,7 +659,8 @@ function bindEvents() {
   const courseCancel = $("#courseCancel");
   if (courseCancel) courseCancel.addEventListener("click", closeCourseDialog);
   const restoreBtn = $("#btnRestoreHidden");
-  if (restoreBtn) restoreBtn.addEventListener("click", restoreAllHidden);
+  if (restoreBtn)
+    restoreBtn.addEventListener("click", () => confirmTwice(restoreBtn, () => restoreAllHidden(restoreBtn)));
   // 课表卡片上的操作按钮（事件委托）
   const gridEl = $("#grid");
   if (gridEl) {
@@ -639,7 +670,7 @@ function bindEvents() {
       ev.preventDefault();
       const act = btn.dataset.act;
       if (act === "hide") return hideCourse(btn.dataset.fp, false, btn.dataset.name || "");
-      if (act === "del") return deleteCourse(btn.dataset.entry);
+      if (act === "del") return confirmTwice(btn, () => deleteCourse(btn.dataset.entry));
       if (act === "edit") {
         try {
           const r = await get("manual");
