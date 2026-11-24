@@ -176,6 +176,12 @@ function closeCourseDialog() {
   $("#courseDialog").hidden = true;
 }
 
+// 点遮罩空白处也能关闭
+document.addEventListener("click", (ev) => {
+  const mask = $("#courseDialog");
+  if (mask && !mask.hidden && ev.target === mask) closeCourseDialog();
+});
+
 async function saveCourse(ev) {
   ev.preventDefault();
   const f = $("#courseForm");

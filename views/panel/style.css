@@ -735,6 +735,12 @@ html[data-theme="dark"] .chip.warn {
   z-index: 50;
 }
 
+/* 关键：显式 display 会覆盖 HTML hidden 属性的 UA 规则，
+   必须用 [hidden] 选择器把隐藏写回来（真实踩过的坑：对话框永远显示、关不掉） */
+.dialog-mask[hidden] {
+  display: none;
+}
+
 .dialog {
   width: min(420px, 92vw);
   max-height: 88vh;
