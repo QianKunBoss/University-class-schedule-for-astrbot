@@ -96,6 +96,18 @@ class JwTimetablePlugin(Star):
             getattr(self.scheduler, "provider_getter", None) or self._llm_provider
         )
 
+        # 自定义课程存储：面板里手动增删改的课程 + 隐藏教务课程的标记。
+        # 注入方式与 provider_getter 相同（属性注入，兼容旧版核心包）。
+        from jwkb_core.manual import ManualStore
+
+        self.manual_store = ManualStore(self._data_dir, log=logger)
+        self.scheduler.manual_provider = lambda: self.manual_store
+        # 启动时对恢复的课表应用一次（跨重启保持自定义内容）
+        try:
+            self.manual_store.apply(self.scheduler.timetable)
+        except Exception as exc:
+            logger.warning("[kb] 启动时应用自定义课程失败：%s", exc)
+
         self._start_ticker()
 
         # WebUI 面板：v4.28+ 支持插件独立页面。注册失败不能影响课表主功能，

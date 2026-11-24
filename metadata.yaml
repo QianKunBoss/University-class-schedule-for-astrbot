@@ -9,7 +9,7 @@ desc: >-
   功能：今日/明日/指定周与指定星期查询、每日课表早报、调课/换教室变更推送、
   /课表 等中文指令、课表图片渲染（文转图失败自动回退文本）。
   所有数据只保存在本地 data 目录，密码仅存于 AstrBot 配置，不上传任何第三方。
-version: "0.3.8"
+version: "0.3.9"
 repo: https://github.com/QianKunBoss/astrbot_plugin_jw_timetable
 astrbot_version: ">=4.20.0"
 tags:

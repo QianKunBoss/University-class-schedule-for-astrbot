@@ -677,3 +677,98 @@ html[data-theme="dark"] .chip.warn {
     display: none;
   }
 }
+
+/* ---------------- 自定义课程 / 编辑 ---------------- */
+.course.manual {
+  border-style: dashed;
+  border-color: var(--accent);
+}
+
+.course .tag {
+  font-size: 10px;
+  padding: 1px 5px;
+  border-radius: 8px;
+  background: var(--accent);
+  color: var(--accent-contrast, #fff);
+  vertical-align: middle;
+}
+
+.course-actions {
+  display: none;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.course:hover .course-actions,
+.course:focus-within .course-actions {
+  display: flex;
+}
+
+@media (hover: none) {
+  .course .course-actions {
+    display: flex;
+  }
+}
+
+.mini-btn {
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  border-radius: 6px;
+  font-size: 11px;
+  line-height: 1;
+  padding: 3px 5px;
+  cursor: pointer;
+}
+
+.mini-btn:hover {
+  background: var(--border);
+}
+
+.dialog-mask {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+}
+
+.dialog {
+  width: min(420px, 92vw);
+  max-height: 88vh;
+  overflow: auto;
+  background: var(--panel, var(--bg));
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+}
+
+.dialog h3 {
+  margin: 0 0 10px;
+  font-size: 15px;
+}
+
+.dialog .row2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+#courseForm .field {
+  margin-bottom: 10px;
+}
+
+#courseForm input,
+#courseForm select {
+  width: 100%;
+  box-sizing: border-box;
+}

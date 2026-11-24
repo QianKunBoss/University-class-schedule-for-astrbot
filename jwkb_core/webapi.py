@@ -16,6 +16,8 @@ from typing import Any
 from . import presenter, term
 from .const import PLUGIN_NAME, PLUGIN_VERSION
 from .errors import JwError
+from .models import Course
+from .parser import parse_weeks
 from .storage import mask_account
 
 try:  # 官方推荐入口（AstrBot v4.28+）
@@ -89,6 +91,8 @@ class WebPanel:
         "login": ("login", ["POST"]),
         "refresh": ("refresh", ["POST"]),
         "toggle": ("toggle", ["POST"]),
+        "manual": ("manual_courses", ["GET", "POST"]),
+        "hide": ("hide_course", ["POST"]),
         "debug/snapshot": ("debug_snapshot", ["GET"]),
     }
 
@@ -102,6 +106,8 @@ class WebPanel:
             ("login", self.login, ["POST"], "测试登录教务系统"),
             ("refresh", self.refresh, ["POST"], "刷新课表"),
             ("toggle", self.toggle, ["POST"], "开关提醒"),
+            ("manual", self.manual_courses, ["GET", "POST"], "自定义课程管理（增改删）"),
+            ("hide", self.hide_course, ["POST"], "隐藏/恢复教务课程"),
             ("debug/snapshot", self.debug_snapshot, ["GET"], "导出最近一次课表页面原始 HTML"),
         ]
         done: list[str] = []
@@ -181,8 +187,11 @@ class WebPanel:
             ocr_ok = False
 
         courses = tt.courses if tt else []
+        store = getattr(self.plugin, "manual_store", None)
         return _ok(
             version=PLUGIN_VERSION,
+            manual_count=len(getattr(store, "entries", []) or []),
+            hidden_count=len(getattr(store, "hidden", []) or []),
             config_path=(getattr(self.plugin, "_config_path", lambda: "")() or ""),
             auth_mode=(self.plugin.jw.auth_mode_used if self.plugin.jw else "") or cfg.jw.auth_mode,
             account=cfg.jw.display_account,
@@ -241,6 +250,115 @@ class WebPanel:
             grid["today"] = []
         grid["ok"] = True
         return json_response(grid)
+
+    # ---------------- GET/POST/DELETE manual ----------------
+    def _store(self):
+        store = getattr(self.plugin, "manual_store", None)
+        if store is None:
+            raise JwError("插件版本过旧，不支持自定义课程（请更新插件）")
+        return store
+
+    def _apply_manual(self) -> None:
+        sch = self.plugin.scheduler
+        if sch is not None and sch.timetable is not None:
+            self._store().apply(sch.timetable)
+            sch.save_state()
+
+    async def manual_courses(self):
+        """自定义课程管理。
+
+        GET              列出全部自定义课程
+        POST {action:"save",   entry_id?, name, weekday, start_period, end_period,
+              weeks_text?, teacher?, location?}  新增或更新
+        POST {action:"delete", entry_id}                删除
+        """
+        payload = await request.json(default={}) if request and request.method == "POST" else {}
+        try:
+            store = self._store()
+        except JwError as exc:
+            return _fail(exc.user_msg)
+
+        if request is None or request.method != "POST":
+            return _ok(entries=[{"entry_id": e["id"], **e["course"].to_dict()} for e in store.entries])
+
+        action = str((payload or {}).get("action") or "save")
+        cfg = self._cfg()
+
+        if action == "delete":
+            entry_id = str(payload.get("entry_id") or "")
+            if not entry_id:
+                return error_response("缺少 entry_id", status_code=400)
+            ok = store.remove(entry_id)
+            self._apply_manual()
+            return _ok(deleted=bool(ok), message="已删除" if ok else "未找到该课程")
+
+        name = str(payload.get("name") or "").strip()
+        if not name:
+            return error_response("课程名不能为空", status_code=400)
+        try:
+            weekday = int(payload.get("weekday") or 0)
+            start_period = int(payload.get("start_period") or 0)
+            end_period = int(payload.get("end_period") or start_period or 0)
+        except (TypeError, ValueError):
+            return error_response("星期/节次必须是数字", status_code=400)
+        if not 1 <= weekday <= 7:
+            return error_response("星期必须在 1~7 之间（周一~周日）", status_code=400)
+        if not 1 <= start_period <= 20 or not 1 <= end_period <= 20 or end_period < start_period:
+            return error_response("节次范围不合法", status_code=400)
+
+        weeks_text = str(payload.get("weeks_text") or "").strip()
+        weeks, _guessed = parse_weeks(weeks_text, cfg.schedule.max_week)
+        if not weeks:
+            # 留空 = 每周都有（1~max_week），提醒和查询都不会漏
+            weeks = list(range(1, cfg.schedule.max_week + 1))
+
+        course = Course(
+            name=name,
+            weekday=weekday,
+            start_period=start_period,
+            end_period=end_period,
+            weeks=weeks,
+            teacher=str(payload.get("teacher") or "").strip(),
+            location=str(payload.get("location") or "").strip(),
+            manual=True,
+        )
+
+        entry_id = str(payload.get("entry_id") or "")
+        stored = store.update(entry_id, course) if entry_id else store.add(course)
+        if stored is None:
+            return error_response("未找到要编辑的自定义课程", status_code=404)
+        self._apply_manual()
+        return _ok(
+            entry={"entry_id": stored.entry_id, **stored.to_dict()},
+            message="已保存",
+        )
+
+    async def hide_course(self):
+        """隐藏或恢复一条教务课程。
+
+        POST {fingerprint, hidden: true/false}
+        """
+        payload = await request.json(default={}) if request else {}
+        fingerprint = str((payload or {}).get("fingerprint") or "")
+        if not fingerprint:
+            return error_response("缺少 fingerprint", status_code=400)
+        hidden = bool((payload or {}).get("hidden", True))
+        try:
+            store = self._store()
+        except JwError as exc:
+            return _fail(exc.user_msg)
+        # 特殊值 __all__：恢复全部隐藏课程（面板「状态」页的恢复按钮）
+        if not hidden and fingerprint == "__all__":
+            for fp in list(store.hidden):
+                store.unhide(fp)
+            self._apply_manual()
+            return _ok(message="已恢复全部隐藏课程")
+        if hidden:
+            store.hide(fingerprint)
+        else:
+            store.unhide(fingerprint)
+        self._apply_manual()
+        return _ok(fingerprint=fingerprint, hidden=hidden, message="已隐藏" if hidden else "已恢复")
 
     # ---------------- GET debug/snapshot ----------------
     async def debug_snapshot(self):

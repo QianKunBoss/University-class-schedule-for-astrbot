@@ -66,11 +66,22 @@ class Course:
     location: str = ""
     raw: str = ""  # 单元格原文，排障用
     weeks_guessed: bool = False  # 周次是否靠猜（解析不出时的兜底标记）
+    manual: bool = False  # True = 用户在面板里手动添加/编辑的自定义课程
+    entry_id: str = ""  # 自定义课程的唯一 id（fetched 课程为空）
 
     @property
     def uid(self) -> str:
         """稳定标识：只由「课名+星期+节次区间」决定，用于变更检测与去重。"""
         key = f"{self.name}|{self.weekday}|{self.start_period}|{self.end_period}"
+        return hashlib.sha1(key.encode("utf-8")).hexdigest()[:12]
+
+    @property
+    def fingerprint(self) -> str:
+        """内容指纹：含周次与教室，用于「隐藏某条教务课程」的标记。"""
+        key = (
+            f"{self.name}|{self.weekday}|{self.start_period}|{self.end_period}"
+            f"|{','.join(str(w) for w in self.weeks)}|{self.location}"
+        )
         return hashlib.sha1(key.encode("utf-8")).hexdigest()[:12]
 
     @property
@@ -96,6 +107,8 @@ class Course:
             "location": self.location,
             "raw": self.raw,
             "weeks_guessed": self.weeks_guessed,
+            "manual": self.manual,
+            "entry_id": self.entry_id,
         }
 
     @classmethod
@@ -110,6 +123,8 @@ class Course:
             location=str(d.get("location", "") or ""),
             raw=str(d.get("raw", "") or ""),
             weeks_guessed=bool(d.get("weeks_guessed", False)),
+            manual=bool(d.get("manual", False)),
+            entry_id=str(d.get("entry_id", "") or ""),
         )
 
 
@@ -120,6 +135,9 @@ class Timetable:
     term: str = ""
     term_name: str = ""
     courses: list[Course] = field(default_factory=list)
+    # 教务抓到的原始课程（未应用隐藏过滤、未合并自定义课）。
+    # 自定义课程/隐藏过滤都从这份列表出发重建 courses，保证操作可逆。
+    fetched_courses: list[Course] = field(default_factory=list)
     fetched_at: float = 0.0
     week1_monday: str = ""  # 第 1 周周一的日期，ISO 格式 YYYY-MM-DD
     week1_source: str = ""  # jw / config / guessed / manual
@@ -135,6 +153,7 @@ class Timetable:
             "term": self.term,
             "term_name": self.term_name,
             "courses": [c.to_dict() for c in self.courses],
+            "fetched_courses": [c.to_dict() for c in self.fetched_courses],
             "fetched_at": self.fetched_at,
             "week1_monday": self.week1_monday,
             "week1_source": self.week1_source,
@@ -143,10 +162,16 @@ class Timetable:
 
     @classmethod
     def from_dict(cls, d: dict) -> Timetable:
+        courses = [Course.from_dict(x) for x in (d.get("courses") or [])]
+        fetched = [Course.from_dict(x) for x in (d.get("fetched_courses") or [])]
+        if not fetched:
+            # 旧版状态文件没有 fetched_courses：从 courses 里推导（排除自定义课）
+            fetched = [c for c in courses if not c.manual]
         return cls(
             term=str(d.get("term", "") or ""),
             term_name=str(d.get("term_name", "") or ""),
-            courses=[Course.from_dict(x) for x in (d.get("courses") or [])],
+            courses=courses,
+            fetched_courses=fetched,
             fetched_at=float(d.get("fetched_at", 0) or 0),
             week1_monday=str(d.get("week1_monday", "") or ""),
             week1_source=str(d.get("week1_source", "") or ""),

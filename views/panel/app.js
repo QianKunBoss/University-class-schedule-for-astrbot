@@ -78,6 +78,13 @@ function renderTopbar() {
 function renderStatus() {
   const s = state.status;
   if (!s) return;
+  const restoreBtn = $("#btnRestoreHidden");
+  if (restoreBtn) restoreBtn.hidden = !(s.hidden_count > 0);
+  const editInfo = $("#editInfo");
+  if (editInfo)
+    editInfo.textContent =
+      (s.manual_count > 0 ? `有 ${s.manual_count} 门自定义课程。` : "可以在课表页添加自定义课程。") +
+      (s.hidden_count > 0 ? ` 教务课程已隐藏 ${s.hidden_count} 条。` : "");
   const rows = [
     ["认证方式", s.auth_mode || "-"],
     ["账号", s.account || "未配置"],
@@ -86,6 +93,7 @@ function renderStatus() {
     ["SSO 回调", s.service_url || "-"],
     ["学期", s.term_name || s.term || "-"],
     ["当前周", s.week ? `第 ${s.week} 周` : "未开学 / 未知"],
+    ["自定义课程", `${s.manual_count ?? 0} 条（已隐藏教务课程 ${s.hidden_count ?? 0} 条）`],
     ["第 1 周周一", s.week1 ? `${s.week1}（${s.week1_source}）` : "-"],
     ["课表缓存", s.fetched_at || "无"],
     ["课程数", String(s.course_count || 0)],
@@ -128,13 +136,116 @@ async function loadStatus() {
 }
 
 // ---------------- 课表 ----------------
+// ---------------- 自定义课程（面板编辑） ----------------
+let editingEntryId = "";
+
+function weeksToText(weeks) {
+  const list = (weeks || []).slice().sort((a, b) => a - b);
+  if (!list.length) return "";
+  const segs = [];
+  let s = list[0], prev = list[0];
+  for (let i = 1; i <= list.length; i++) {
+    const v = list[i];
+    if (v !== prev + 1) {
+      segs.push(s === prev ? String(s) : `${s}-${prev}`);
+      s = v;
+    }
+    prev = v;
+  }
+  return segs.join(",");
+}
+
+async function openCourseDialog(entry) {
+  editingEntryId = entry ? entry.entry_id : "";
+  $("#courseDialogTitle").textContent = entry ? "编辑自定义课程" : "添加自定义课程";
+  const f = $("#courseForm");
+  f.name.value = entry ? entry.name : "";
+  f.weekday.value = entry
+    ? String(entry.weekday)
+    : String((state.grid && state.grid.days || []).find((d) => d.today)?.weekday || 1);
+  f.start_period.value = entry ? entry.start_period : 1;
+  f.end_period.value = entry ? entry.end_period : 2;
+  f.weeks_text.value = entry ? weeksToText(entry.weeks) : "";
+  f.teacher.value = entry ? entry.teacher : "";
+  f.location.value = entry ? entry.location : "";
+  $("#courseDialog").hidden = false;
+  setTimeout(() => f.name.focus(), 50);
+}
+
+function closeCourseDialog() {
+  $("#courseDialog").hidden = true;
+}
+
+async function saveCourse(ev) {
+  ev.preventDefault();
+  const f = $("#courseForm");
+  const payload = {
+    action: "save",
+    entry_id: editingEntryId || "",
+    name: f.name.value.trim(),
+    weekday: Number(f.weekday.value),
+    start_period: Number(f.start_period.value),
+    end_period: Number(f.end_period.value),
+    weeks_text: f.weeks_text.value.trim(),
+    teacher: f.teacher.value.trim(),
+    location: f.location.value.trim(),
+  };
+  if (!payload.name) return toast("课程名不能为空", true);
+  if (payload.end_period < payload.start_period)
+    return toast("结束节次不能小于开始节次", true);
+  try {
+    const r = await post("manual", payload);
+    if (r && r.ok === false) return toast(r.message || "保存失败", true);
+    closeCourseDialog();
+    toast(editingEntryId ? "课程已更新" : "课程已添加");
+    await loadTimetable(state.week);
+  } catch (err) {
+    toast(err.message, true);
+  }
+}
+
+async function deleteCourse(entryId) {
+  if (!confirm("确定删除这门自定义课程？")) return;
+  try {
+    await post("manual", { action: "delete", entry_id: entryId });
+    toast("课程已删除");
+    await loadTimetable(state.week);
+  } catch (err) {
+    toast(err.message, true);
+  }
+}
+
+async function hideCourse(fp, restore) {
+  try {
+    await post("hide", { fingerprint: fp, hidden: !restore });
+    toast(restore ? "已恢复" : "已隐藏");
+    await loadTimetable(state.week);
+    await loadStatus();
+  } catch (err) {
+    toast(err.message, true);
+  }
+}
+
+async function restoreAllHidden() {
+  if (!confirm("恢复全部被隐藏的教务课程？")) return;
+  await hideCourse("__all__", true);
+}
+
 function cardHtml(c) {
   const parts = [];
   if (c.location) parts.push(`<span>📍 ${esc(c.location)}</span>`);
   if (c.teacher) parts.push(`<span>👤 ${esc(c.teacher)}</span>`);
   if (!parts.length) parts.push("<span>未识别</span>");
-  const cls = c.incomplete ? "course incomplete" : "course";
-  return `<div class="${cls}" title="${esc(c.time)}"><div class="name">${esc(c.name)}</div><div class="meta">${parts.join("")}</div></div>`;
+  let cls = c.incomplete ? "course incomplete" : "course";
+  if (c.manual) cls += " manual";
+  // 面板编辑按钮：自定义课 → 编辑/删除；教务课 → 隐藏
+  let actions = "";
+  if (c.manual) {
+    actions = `<div class="course-actions"><button class="mini-btn" data-act="edit" data-entry="${esc(c.entry_id)}" title="编辑">✎</button><button class="mini-btn" data-act="del" data-entry="${esc(c.entry_id)}" title="删除">🗑</button></div>`;
+  } else {
+    actions = `<div class="course-actions"><button class="mini-btn" data-act="hide" data-fp="${esc(c.fingerprint)}" title="从课表中隐藏这一条">🚫</button></div>`;
+  }
+  return `<div class="${cls}" title="${esc(c.time)}"><div class="name">${esc(c.name)}${c.manual ? ' <span class="tag">自定义</span>' : ""}</div><div class="meta">${parts.join("")}</div>${actions}</div>`;
 }
 
 function renderGrid() {
@@ -484,6 +595,36 @@ function bindEvents() {
   if (termSelect) termSelect.addEventListener("change", toggleManualInput);
   const exportBtn = $("#btnExportSnapshot");
   if (exportBtn) exportBtn.addEventListener("click", exportSnapshot);
+  const addCourseBtn = $("#btnAddCourse");
+  if (addCourseBtn)
+    addCourseBtn.addEventListener("click", () => openCourseDialog(null));
+  const courseForm = $("#courseForm");
+  if (courseForm) courseForm.addEventListener("submit", saveCourse);
+  const courseCancel = $("#courseCancel");
+  if (courseCancel) courseCancel.addEventListener("click", closeCourseDialog);
+  const restoreBtn = $("#btnRestoreHidden");
+  if (restoreBtn) restoreBtn.addEventListener("click", restoreAllHidden);
+  // 课表卡片上的操作按钮（事件委托）
+  const gridEl = $("#grid");
+  if (gridEl) {
+    gridEl.addEventListener("click", async (ev) => {
+      const btn = ev.target.closest(".mini-btn");
+      if (!btn) return;
+      ev.preventDefault();
+      const act = btn.dataset.act;
+      if (act === "hide") return hideCourse(btn.dataset.fp, false);
+      if (act === "del") return deleteCourse(btn.dataset.entry);
+      if (act === "edit") {
+        try {
+          const r = await get("manual");
+          const entry = (r.entries || []).find((x) => x.entry_id === btn.dataset.entry);
+          if (entry) await openCourseDialog(entry);
+        } catch (err) {
+          toast(err.message, true);
+        }
+      }
+    });
+  }
 }
 
 // ---------------- 启动 ----------------

@@ -287,6 +287,18 @@ class Scheduler:
             week1_source=source,
             snapshot=snap,
         )
+        tt.fetched_courses = list(courses)
+
+        # 合并面板里的自定义课程 / 隐藏标记（manual_provider 由 main.py 注入，
+        # 用属性注入而非构造参数，兼容旧版核心包的混合目录场景）
+        provider = getattr(self, "manual_provider", None)
+        if callable(provider):
+            try:
+                store = provider()
+                if store is not None:
+                    store.apply(tt)
+            except Exception as exc:
+                self._warn("[kb] 合并自定义课程失败：%s", exc)
 
         old = self.timetable
         self.timetable = tt

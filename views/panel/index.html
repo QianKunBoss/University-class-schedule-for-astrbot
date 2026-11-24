@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>教务课表</title>
-    <link rel="stylesheet" href="./style.css?v=038" />
+    <link rel="stylesheet" href="./style.css?v=039" />
   </head>
   <body>
     <div class="app">
@@ -46,6 +46,7 @@
             <button class="btn ghost small" id="thisWeek">回到本周</button>
             <span class="spacer"></span>
             <span class="hint" id="courseCount"></span>
+            <button class="btn small" id="btnAddCourse">＋ 自定义课程</button>
           </div>
           <div class="tablewrap">
             <table id="grid" class="grid"></table>
@@ -182,12 +183,70 @@
               可以精准适配你学校的格式。
             </p>
             <button class="btn ghost small" id="btnExportSnapshot">导出课表原始页面（HTML）</button>
+            <p class="hint" id="editInfo"></p>
+            <button class="btn ghost small" id="btnRestoreHidden" hidden>恢复全部隐藏课程</button>
           </div>
         </section>
       </main>
 
       <div class="toast" id="toast" hidden></div>
+
+      <!-- 自定义课程编辑对话框 -->
+      <div class="dialog-mask" id="courseDialog" hidden>
+        <div class="dialog">
+          <h3 id="courseDialogTitle">添加自定义课程</h3>
+          <form id="courseForm">
+            <label class="field">
+              <span>课程名 *</span>
+              <input name="name" required placeholder="如：班会 / 自习" />
+            </label>
+            <label class="field">
+              <span>星期 *</span>
+              <select name="weekday" required>
+                <option value="1">周一</option>
+                <option value="2">周二</option>
+                <option value="3">周三</option>
+                <option value="4">周四</option>
+                <option value="5">周五</option>
+                <option value="6">周六</option>
+                <option value="7">周日</option>
+              </select>
+            </label>
+            <div class="row2">
+              <label class="field">
+                <span>开始节次 *</span>
+                <input type="number" name="start_period" min="1" max="20" value="1" required />
+              </label>
+              <label class="field">
+                <span>结束节次 *</span>
+                <input type="number" name="end_period" min="1" max="20" value="2" required />
+              </label>
+            </div>
+            <label class="field">
+              <span>上课周次</span>
+              <input name="weeks_text" placeholder="如 1-16 或 2,4,6；留空 = 每周" />
+            </label>
+            <div class="row2">
+              <label class="field">
+                <span>教师</span>
+                <input name="teacher" placeholder="选填" />
+              </label>
+              <label class="field">
+                <span>教室</span>
+                <input name="location" placeholder="选填" />
+              </label>
+            </div>
+            <p class="hint">
+              自定义课程会参与上课提醒、每日早报和 LLM 工具查询；教务刷新不会覆盖它。
+            </p>
+            <div class="dialog-actions">
+              <button type="button" class="btn ghost" id="courseCancel">取消</button>
+              <button type="submit" class="btn" id="courseSave">保存</button>
+            </div>
+          </form>
+        </div>
+      </div>
     </div>
-    <script type="module" src="./app.js?v=038"></script>
+    <script type="module" src="./app.js?v=039"></script>
   </body>
 </html>

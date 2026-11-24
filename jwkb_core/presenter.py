@@ -24,9 +24,14 @@ def course_card(course: Course, schedule) -> dict:
         "start_period": course.start_period,
         "end_period": course.end_period,
         "time": f"{start}-{end}" if start and end else "",
+        "weeks": list(course.weeks),
         "weeks_guessed": course.weeks_guessed,
         # 缺字段的会在面板里标黄，提示识别不完整
         "incomplete": not (course.teacher and course.location),
+        # 面板编辑：自定义课程可改/删；教务课程可隐藏
+        "manual": course.manual,
+        "entry_id": course.entry_id,
+        "fingerprint": course.fingerprint,
     }
 
 
