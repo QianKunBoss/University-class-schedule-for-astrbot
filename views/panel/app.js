@@ -669,7 +669,8 @@ function bindEvents() {
       if (!btn) return;
       ev.preventDefault();
       const act = btn.dataset.act;
-      if (act === "hide") return hideCourse(btn.dataset.fp, false, btn.dataset.name || "");
+      if (act === "hide")
+        return confirmTwice(btn, () => hideCourse(btn.dataset.fp, false, btn.dataset.name || ""));
       if (act === "del") return confirmTwice(btn, () => deleteCourse(btn.dataset.entry));
       if (act === "edit") {
         try {
