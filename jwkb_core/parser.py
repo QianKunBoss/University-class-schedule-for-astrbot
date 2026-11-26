@@ -442,9 +442,11 @@ def _parse_cell(
     big_size: int,
 ) -> list[Course]:
     out: list[Course] = []
-    last_name = ""  # 同一块内被分隔线隔开的续段会省略课程名，沿用上一段的名字
     for block in _split_blocks(cell):
-        # 按分隔线拆成子段（保留 <font> 结构），每段独立取字段
+        # 按分隔线拆成子段（保留 <font> 结构），每段独立取字段。
+        # 注意：不做「续段继承上一段课程名」—— 琼台真实页面里每个续段都会重复写课程名，
+        # 而调课会把另一门课（如 形势与政策）调进同一时段，继承反而把名字顶掉
+        # （真实踩过的坑：卡片教师显示成了另一门课名）。
         segments = _split_entry_segments(block)
         for si, (seg, mark) in enumerate(segments):
             text = _cell_text(seg)
@@ -454,13 +456,10 @@ def _parse_cell(
             lines = [ln for ln in text.split("\n") if ln.strip()]
             if not lines:
                 continue
-            # 继承范围仅限「同一块内的续段」—— 每个 div.kbcontent 是独立课程，
-            # 跨块继承会把「体育」顶成「大学英语」（真实踩过的坑）。
-            fields = _classify_lines(lines, known, default_name=last_name if si > 0 else "")
+            fields = _classify_lines(lines, known)
             name = _clean(fields.get("name", ""))
             if not name or SEPARATOR_RE.fullmatch(name):
                 continue
-            last_name = name
             weeks_text = fields.get("weeks", "")
             weeks, guessed = parse_weeks(weeks_text, max_week)
             span = parse_periods_from_text(weeks_text, big_size)

@@ -146,28 +146,59 @@ def test_parse_weeks_multi_ranges_like_real_page():
 # ---------- 续块省略课程名（琼台页面真实结构） ----------
 
 
-def test_parse_cell_continuation_blocks_inherit_name():
-    """同格续块只写 教师/周次/教室，课程名沿用上一块；
-    分隔线不能泄漏成课程名，教室行不能被当成课程名。"""
+def test_parse_cell_continuation_segments_keep_own_names():
+    """琼台真实格式：每个续段都会重复写课程名（不同周次段各自独立）。
+    不做名字继承 —— 调课会把另一门课调进同一时段，继承会把名字顶掉
+    （真实踩过的坑：卡片教师显示成了「形势与政策」）。"""
     headers = "".join(f"<th>星期{d}</th>" for d in ["一", "二", "三", "四", "五", "六", "日"])
     blanks = "<td></td>" * 6
     html = (
         "<table>"
         f"<tr><th>节次</th>{headers}</tr>"
-        "<tr><td>1-2节</td>"
+        "<tr><td>5-6节</td>"
         '<td><div class="kbcontent">'
-        "程序设计基础<br/>宁营<br/>2周[01-02节]<br/>报国楼（原理A）401（本部）<br/>"
-        "--------------------<br/>于营<br/>4周[01-02节]<br/>报国楼（原理A）401（本部）"
+        "程序设计基础<br/>于营<br/>9(周)[05-06节]<br/>报国楼（原理A）204（桂）<br/>"
+        "---------------------<br>形势与政策<br/>邓丽娜<br/>11-14(周)[05-06节]<br/>勤学楼（原美术）104（桂）"
         "</div></td>"
         f"{blanks}</tr></table>"
     )
-    courses = parse_timetable(html, big_period_size=2)
+    courses = parse_timetable(html, max_week=20, big_period_size=2)
     assert len(courses) == 2
-    assert {c.name for c in courses} == {"程序设计基础"}
-    assert {c.teacher for c in courses} == {"宁营", "于营"}
-    assert sorted(tuple(c.weeks) for c in courses) == [(2,), (4,)]
-    assert all(c.location == "报国楼（原理A）401（本部）" for c in courses)
-    assert all(not SEPARATOR_LIKE(c.name) for c in courses)
+    by_name = {c.name: c for c in courses}
+    assert set(by_name) == {"程序设计基础", "形势与政策"}
+    assert by_name["程序设计基础"].teacher == "于营"
+    assert by_name["程序设计基础"].weeks == [9]
+    assert by_name["形势与政策"].teacher == "邓丽娜"
+    assert by_name["形势与政策"].weeks == list(range(11, 15))
+    assert by_name["形势与政策"].location == "勤学楼（原美术）104（桂）"
+
+
+def test_schedule_swap_pair_not_merged():
+    """调课对完整还原：程序设计基础（9周@报国楼204）与 形势与政策（11-14周@勤学楼104）
+    在同一格里，两条都要独立成立，教师/教室不串。"""
+    cell_html = (
+        "<table>"
+        "<tr><th>节次</th><th>星期一</th><th>星期二</th><th>星期三</th>"
+        "<th>星期四</th><th>星期五</th><th>星期六</th><th>星期日</th></tr>"
+        "<tr><td>05-06节</td>"
+        "<td><div class=\"kbcontent\">程序设计基础<span ><font color='red'>&nbspP</font></span><br/>"
+        "<font title='老师'>于营</font><br/>"
+        "<font title='周次(节次)'>9(周)[05-06节]</font><br/>"
+        "<font title='教室'>报国楼（原理A）204（桂）</font><br/>"
+        "---------------------<br>形势与政策<br/>"
+        "<font title='老师'>邓丽娜</font><br/>"
+        "<font title='周次(节次)'>11-14(周)[05-06节]</font><br/>"
+        "<font title='教室'>勤学楼（原美术）104（桂）</font></div></td>"
+        "<td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr></table>"
+    )
+    courses = parse_timetable(cell_html, max_week=20, big_period_size=2)
+    assert len(courses) == 2
+    prog = [c for c in courses if c.name == "程序设计基础"][0]
+    sw = [c for c in courses if c.name == "形势与政策"][0]
+    assert prog.teacher == "于营" and prog.location == "报国楼（原理A）204（桂）"
+    assert prog.weeks == [9] and prog.mark == "P"
+    assert sw.teacher == "邓丽娜" and sw.location == "勤学楼（原美术）104（桂）"
+    assert sw.weeks == list(range(11, 15))
 
 
 def SEPARATOR_LIKE(text):
